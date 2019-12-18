@@ -47,7 +47,7 @@
 ;; - You must have rust and cargo installed and the rust and cargo should be in your `exec-path'
 ;;   rust command.
 ;;
-;; - cargo-script
+;; - scriptisto
 ;;
 ;; - `rust-mode' is also recommended for syntax highlighting and
 ;;   formatting.  Not this particularly needs it, it just assumes you
@@ -77,24 +77,36 @@ This function is called by `org-babel-execute-src-block'."
          (_args (cdr (assoc :args processed-params)))
          (coding-system-for-read 'utf-8) ;; use utf-8 with subprocesses
          (coding-system-for-write 'utf-8)
-         (wrapped-body (if (string-match-p "fn main()" body) body (concat "fn main() {\n" body "\n}"))))
+         (wrapped-body (if (string-match-p "scriptisto" body) body (concat "#!/usr/bin/env scriptisto\n\
+\n\
+// scriptisto-begin\n\
+// script_src: src/main.rs\n\
+// build_cmd: cargo build --release && strip ./target/release/script\n\
+// target_bin: ./target/release/script\n\
+// files:\n\
+//  - path: Cargo.toml\n\
+//    content: |\n\
+//     package = { name = \"script\", version = \"0.1.0\", edition = \"2018\"}\n\
+//     [dependencies]\n\
+// scriptisto-end\n\
+\n" body))))
     (with-temp-file tmp-src-file (insert wrapped-body))
     (let ((results
-     (org-babel-eval
-      (format "cargo script %s" tmp-src-file)
+           (org-babel-eval
+            (format "scriptisto %s" tmp-src-file)
             "")))
       (when results
         (org-babel-reassemble-table
          (if (or (member "table" (cdr (assoc :result-params processed-params)))
-           (member "vector" (cdr (assoc :result-params processed-params))))
-       (let ((tmp-file (org-babel-temp-file "rust-")))
-         (with-temp-file tmp-file (insert (org-babel-trim results)))
-         (org-babel-import-elisp-from-file tmp-file))
-     (org-babel-read (org-babel-trim results) t))
+                 (member "vector" (cdr (assoc :result-params processed-params))))
+             (let ((tmp-file (org-babel-temp-file "rust-")))
+               (with-temp-file tmp-file (insert (org-babel-trim results)))
+               (org-babel-import-elisp-from-file tmp-file))
+           (org-babel-read (org-babel-trim results) t))
          (org-babel-pick-name
-    (cdr (assoc :colname-names params)) (cdr (assoc :colnames params)))
+          (cdr (assoc :colname-names params)) (cdr (assoc :colnames params)))
          (org-babel-pick-name
-    (cdr (assoc :rowname-names params)) (cdr (assoc :rownames params))))))))
+          (cdr (assoc :rowname-names params)) (cdr (assoc :rownames params))))))))
 
 ;; This function should be used to assign any variables in params in
 ;; the context of the session environment.
